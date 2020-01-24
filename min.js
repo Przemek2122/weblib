@@ -2,10 +2,12 @@
 
 function StartLoading() {
     Show(document.getElementById('loader'), 1000);
+    document.body.style.overflow = "hidden"; 
 }
 
 function StopLoading() {
     Hide(document.getElementById('loader'), 1000);
+    document.body.style.overflow = "auto";  
 }
 
 /* @element to show
@@ -13,6 +15,7 @@ function StopLoading() {
  * function use css opacity to show. */
 function Show(element, time) {
     ShowSlowly(element, time, parseInt(new Date().getTime()));
+    element.style.pointerEvents = "auto";
 }
 
 /* Helper function. Don't call use Show(element, time) instead */
@@ -29,6 +32,7 @@ function ShowSlowly(element, time, startTime) {
  * function use css opacity to hide. */
 function Hide(element, time) {
     HideSlowly(element, time, parseInt(new Date().getTime()));
+    element.style.pointerEvents = "none";
 }
 
 /* Helper function. Don't call use Show(element, time) instead */
