@@ -11,13 +11,10 @@ var DownloadedLanguages = new Map();
 var DefaultLanguage = "pl";
 // Currently used language
 var CurrentLanguage = "";
-// Event called when language is changed
-var LanguageChangedEvent = new Event('langchange');
-//elem.addEventListener('langchange', function (e) { /* ... */ }, false);
-//elem.dispatchEvent(LanguageChangedEvent);
 
 function Request(){
     let Http = new XMLHttpRequest();
+    let CalledAlready = false;
     Http.open("GET", LangDir + CurrentLanguage + ".json");
     Http.send();
 
@@ -27,8 +24,25 @@ function Request(){
         else if (Http.responseText)
         {
             DownloadedLanguages.set(CurrentLanguage, JSON.parse(Http.responseText));
-            ApplyLang();
+            if (!CalledAlready){
+                //console.log(DownloadedLanguages.get(CurrentLanguage));
+                CalledAlready = true;
+                ApplyLang();
+            }
         }
+    }
+}
+
+function AutoDetectLanguage() {
+    const PreferedLang = window.navigator.userLanguage || window.navigator.language;
+    const IsSupported = SupportedLanguages.find(function(element) { 
+        return element == PreferedLang.substring(0, 2); 
+    }); 
+    console.log(PreferedLang.substring(0, 2));
+    if (IsSupported){
+        ChangeLanguage(PreferedLang.substring(0, 2));
+    } else {
+        console.log('[Lang]: Unsupported language.');
     }
 }
 
@@ -37,33 +51,24 @@ function ChangeLanguage(lang){
         return element == lang; 
     }); 
 
-    if(CurrentLanguage == lang || !IsSupported)
+    if(CurrentLanguage == lang || !IsSupported){
+        console.log('[Lang]: CurrentLanguage == lang || !IsSupported');
         return;
-
-    CurrentLanguage = lang;
-    document.dispatchEvent(LanguageChangedEvent);
-    //StartLoading(800);
-
-    Request();
-}
-
-function AutoDetectLanguage() {
-    const PreferedLang = window.navigator.userLanguage || window.navigator.language;
-
-    const IsSupported = SupportedLanguages.find(function(element) { 
-        return element == PreferedLang; 
-    }); 
-
-    if (IsSupported){
-        ChangeLanguage(PreferedLang);
+    } else if (DownloadedLanguages.get(lang)) {
+        console.log('[Lang]: Setting cached language.');
+        CurrentLanguage = lang;
+        ApplyLang();
+        return;
+    } else {
+        console.log('[Lang]: Download language request.');
+        CurrentLanguage = lang;
+        StartLoading(800);
+        Request();
     }
 }
-AutoDetectLanguage();
 
 function ApplyLang() {
     console.log('[Lang]: Language changed. Current lang: ' + CurrentLanguage);
-    console.log(DownloadedLanguages.get(CurrentLanguage));
-
     let json = DownloadedLanguages.get(CurrentLanguage);
 
     for (let key in json) {
@@ -76,14 +81,6 @@ function ApplyLang() {
             }
         }
     }
-}
 
-function logMapElements(value, key, map) {
-    console.log(`m[${key}] = ${value}`);
-    let elem = document.getElementById(key);
-    if (elem){
-        elem.innerHTML = value;
-    } else {
-        console.log("[Lang]: Element with ID: " + key + " not found.");
-    }
+    StopLoading(1000);
 }
