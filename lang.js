@@ -38,7 +38,7 @@ function AutoDetectLanguage() {
     const IsSupported = SupportedLanguages.find(function(element) { 
         return element == PreferedLang.substring(0, 2); 
     }); 
-    console.log(PreferedLang.substring(0, 2));
+    
     if (IsSupported){
         ChangeLanguage(PreferedLang.substring(0, 2));
     } else {
