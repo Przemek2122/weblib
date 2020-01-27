@@ -1,36 +1,59 @@
 // Created by Przemysław Wiewióra
 
 "use strict";
+//
+//  CONFIG
+//
+var LangDir = "/lang/"; // Directory with languages
+var SupportedLanguages = ["pl", "en"]; // Which languages are supported?
+var DownloadedLanguages = new Map(); // Map with saved languages
+var DefaultLanguage = "pl"; // Chose default language - Only used when user prefered language is unavaiable
+var CurrentLanguage = "";// Currently used language
+var DefaultSite = "index.html"; // "index.html" or "index.php" ...
 
-// Directory with languages
-var LangDir = "/lang/";
-// Supported languages
-var SupportedLanguages = ["pl", "en"];
-var DownloadedLanguages = new Map();
-// Chose default language - Only used when user prefered language is unavaiable
-var DefaultLanguage = "pl";
-// Currently used language
-var CurrentLanguage = "";
+//
+//  INFO
+//
+// Hierarchy
+// lang/en/page.json will be for example page.html or page.php
+//
 
 function Request(){
     let Http = new XMLHttpRequest();
     let CalledAlready = false;
-    Http.open("GET", LangDir + CurrentLanguage + ".json");
+    Http.open("GET", GetLangURL());
     Http.send();
 
     Http.onreadystatechange = (e) => {
-        if (Http.status != 200)
-            console.log("[Lang]: File: " + url + " Not found.");
+        if (Http.status != 200 && Http.status != 0)
+            console.log("[Lang]: File: " + GetLangURL() + " Not found. Http.status: " + Http.status);
         else if (Http.responseText)
         {
             DownloadedLanguages.set(CurrentLanguage, JSON.parse(Http.responseText));
             if (!CalledAlready){
-                //console.log(DownloadedLanguages.get(CurrentLanguage));
                 CalledAlready = true;
                 ApplyLang();
+                Http.abort();
+                Http = null;
             }
         }
     }
+}
+
+function GetLangURL() {
+    return LangDir + CurrentLanguage + "/" + GetPage() + ".json";
+}
+
+function GetPage() {
+    let page;
+    if (window.location.pathname == "/")
+        page = DefaultSite;
+    else
+        page = window.location.pathname.split('/').pop(); // eg index.html
+
+    page = page.replace(".html", "");
+    page = page.replace(".php", "");
+    return page;
 }
 
 function AutoDetectLanguage() {

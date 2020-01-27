@@ -12,6 +12,11 @@ function $(querySelector){
 function IsPassedID(id) {
     let elementTarget = document.getElementById(id);
 
+    if (!elementTarget){
+        console.log("[lib.js]: ID: " + id + " not found!");
+        return;
+    }
+
     if (window.scrollY > (elementTarget.offsetTop + elementTarget.offsetHeight)) 
         return true;
        
@@ -20,6 +25,11 @@ function IsPassedID(id) {
 
 function IsOnID(id) {
     let elementTarget = document.getElementById(id);
+
+    if (!elementTarget){
+        console.log("[lib.js]: ID: " + id + " not found!");
+        return;
+    }
 
     if (window.scrollY + window.innerHeight > elementTarget.offsetTop) 
         return true;
@@ -36,7 +46,11 @@ function RemoveClassByClass(cssClass) {
 }
 
 function AddClassToID(id, cssClass) {
-    document.getElementById(id).classList += cssClass;
+    let Elem = document.getElementById(id);
+    if (Elem)
+        document.getElementById(id).classList += cssClass;
+    else
+        console.log("[lib.js]: AddClassToID(id, cssClass) ID: " + id + " not found.");
 }
 
 /* Return position in array or false. */
