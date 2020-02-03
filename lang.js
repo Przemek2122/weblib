@@ -25,8 +25,11 @@ function Request(){
     Http.send();
 
     Http.onreadystatechange = (e) => {
-        if (Http.status != 200 && Http.status != 0)
+        if (Http.status != 200 && Http.status != 0){
             console.log("[Lang]: File: " + GetLangURL() + " Not found. Http.status: " + Http.status);
+            Http.abort();
+            Http = null;
+        }
         else if (Http.responseText)
         {
             DownloadedLanguages.set(CurrentLanguage, JSON.parse(Http.responseText));
