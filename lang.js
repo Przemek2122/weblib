@@ -1,6 +1,5 @@
 // Created by Przemysław Wiewióra
 
-"use strict";
 //
 //  CONFIG
 //
@@ -9,7 +8,7 @@ var SupportedLanguages = ["pl", "en"]; // Which languages are supported?
 var DownloadedLanguages = new Map(); // Map with saved languages
 var DefaultLanguage = "pl"; // Chose default language - Only used when user prefered language is unavaiable
 var CurrentLanguage = "";// Currently used language
-var DefaultSite = "index.html"; // "index.html" or "index.php" ...
+var DefaultSite = "index.php"; // "index.html" or "index.php" ...
 
 //
 //  INFO
@@ -17,6 +16,8 @@ var DefaultSite = "index.html"; // "index.html" or "index.php" ...
 // Hierarchy
 // lang/en/page.json will be for example page.html or page.php
 //
+
+var Loader = new Loading($("#loader"));
 
 function Request(){
     let Http = new XMLHttpRequest();
@@ -88,7 +89,7 @@ function ChangeLanguage(lang){
     } else {
         console.log('[Lang]: Download language request.');
         CurrentLanguage = lang;
-        StartLoading(800);
+        Loader.Start(800);
         Request();
     }
 }
@@ -108,5 +109,5 @@ function ApplyLang() {
         }
     }
 
-    StopLoading(1000);
+    Loader.Stop(1000);
 }

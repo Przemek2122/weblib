@@ -9,7 +9,7 @@ var Menus = new Map();
 
 window.onresize = OnSizeChanged;
 function OnSizeChanged() {
-    forMap(Menus, function(elem) {
+    Menus.forValues(function(elem) {
         elem.OnWindowChanged();
     });
 }
@@ -20,15 +20,22 @@ function OnSizeChanged() {
  * eg: #id or .css-class
  * $('#someid')
  */
-function $(querySelector){
-    return document.querySelector(querySelector);
-}
+function $(querySelector) { return document.querySelector(querySelector); }
+Object.prototype.$ = function() { return document.querySelector(querySelector);}
+/**
+ * @param {*} time in MS
+ */
+Object.prototype.Show = function(time) { new ShownElement(this, time); }
+/**
+ * @param {*} time in MS
+ */
+Object.prototype.Hide = function(time) { new HidenElement(this, time); }
 
 /**
  * Example ussage
  * array.remove(someItem)
  */
-Array.prototype.remove = function() {
+Array.prototype.remove = function() { 
     this.splice(arguments[0], 1); 
 };
 /**
@@ -52,39 +59,42 @@ Array.prototype.for = function() {
     }
 };
 
+/**
+ * Iterate by keys
+ */
 Map.prototype.forKey = function() {
-    for (let key of map.keys()) {
+    for (let key of this.keys()) {
         arguments[0](key);
     }
 };
-
+/**
+ * Iterate by values
+ */
 Map.prototype.forValues = function() {
-    for (let value of map.values()) {
+    for (let value of this.values()) {
         arguments[0](value); 
     }
 };
 
-/**
- * For each
- * Sample ussage: 
- * forMap(Map, function(elem) {console.log(elem);})
- * 
- * @param {*} map -- Map with elements
- * @param {*} callback -- function callback or function(elem) { // Do sth with ...(elem);}
- * 
- * Iterate over keys
- * for (let key of map.keys()) {
- *     alert(key); 
- * }
- *
- * iterate over values
- * for (let value of map.values()) {
- *     alert(value); 
- * }
- */
-function forMap(map, callback) {
-    for (let value of map.values()) {
-        callback(value); 
+class Loading {
+    constructor(element = $("#loader")) {
+        this.element = element;
+    }
+
+    Start(time = 1000) {
+        if (this.element)
+        {
+            Show(document.getElementById('loader'), time);
+            document.body.style.overflow = "hidden"; 
+        }
+    }
+    
+    Stop(time = 1000) {
+        if (this.element)
+        {
+            Hide(document.getElementById('loader'), time);
+            document.body.style.overflow = "auto"; 
+        } 
     }
 }
 
@@ -107,6 +117,10 @@ function forMap(map, callback) {
  */
 class MenuClickable {
     constructor(element) {
+        if (!element) {
+            Log.l_Warn("MenuClickable: element isn't valid."); return;
+        }
+
         this.element = element;
         this.elements = Array.from(element.parentElement.getElementsByTagName("a"));
         this.displayMethod = element.style.display;
@@ -169,7 +183,7 @@ function IsPassedID(id) {
     let elementTarget = document.getElementById(id);
 
     if (!elementTarget){
-        console.log("[lib.js]: ID: " + id + " not found!");
+        Log.l_Warn("ID: " + id + " not found!");
         return "ID: " + id + " not found!";
     }
     else if (window.scrollY > (elementTarget.offsetTop + elementTarget.offsetHeight)) 
@@ -183,7 +197,7 @@ function IsOnID(id) {
     let elementTarget = document.getElementById(id);
 
     if (!elementTarget){
-        console.log("[lib.js]: ID: " + id + " not found!");
+        Log.l_Warn("ID: " + id + " not found!");
         return;
     }
 
@@ -215,7 +229,8 @@ function AddClassToID(id, cssClass) {
     if (Elem)
         document.getElementById(id).classList += cssClass;
     else
-        console.log("[lib.js]: AddClassToID(id, cssClass) ID: " + id + " not found.");
+        Log.l_Warn("AddClassToID(id, cssClass) ID: " + id + " not found.");
+        
 }
 
 /* Return position in array or false. */
@@ -255,7 +270,9 @@ class ChangingElement {
 }
 
 /**
- * 
+ * Class used to show element 
+ * @see Object.prototype.Show(time) OR
+ * @see function Show(element, time)
  */
 class ShownElement extends ChangingElement {
     constructor(element, time){
@@ -283,7 +300,9 @@ class ShownElement extends ChangingElement {
 }
 
 /**
- * 
+ * Class used to show element 
+ * @see Object.prototype.Hide(time) OR
+ * @see function Hide(element, time)
  */
 class HidenElement extends ChangingElement {
     constructor(element, time){
@@ -317,9 +336,11 @@ class HidenElement extends ChangingElement {
  * @param {*} time in MS
  */
 function Show(element, time) {
-    new ShownElement(element, time);
+    if (element)
+        new ShownElement(element, time);    
+    else
+        Log.l_Warn("function Show() element is NULL.");
 }
-
 /**
  * Function use css opacity to hide.
  * 
@@ -327,49 +348,53 @@ function Show(element, time) {
  * @param {*} time in MS
  */
 function Hide(element, time) {
-    new HidenElement(element, time);
+    if (element)
+        new HidenElement(element, time);
+    else
+        Log.l_Warn("function Hide() element is NULL.");
 }
 
 function PercentTimeDescending(startTime, time) {
     return -(new Date().getTime() - startTime - time) / time;
 }
-
 function PercentTimeAscending(startTime, time) {
     return (new Date().getTime() - startTime) / time;
 }
-/**
- * Sets cookie with
- * @param {*} cname  -- Cookie name
- * @param {*} cvalue -- Cookie value
- * @param {*} exdays -- Cokie expirations days
- */
-function setCookie(cname, cvalue, exdays) {
-    let d = new Date();
-    d.setTime(d.getTime() + (exdays*24*60*60*1000));
-    let expires = "expires="+ d.toUTCString();
-    document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
-}
-/**
- * @param {*} cname returns cookie with name @cname
- */
-function getCookie(cname) {
-    let name = cname + "=";
-    let decodedCookie = decodeURIComponent(document.cookie);
-    let ca = decodedCookie.split(';');
-    for(let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) == ' ') 
-            c = c.substring(1);
-        if (c.indexOf(name) == 0) 
-            return c.substring(name.length, c.length);
+
+var Log = {
+    l_Info(sth) { console.log("[lib.js]: " + sth); },
+    l_Warn(sth) { console.warn("[lib.js]: " + sth); },
+    l_Error(sth) { console.error("[lib.js]: " + sth); }
+};
+
+var Cookie = {
+    /**
+     * Sets cookie with
+     * @param {*} cname  -- Cookie name
+     * @param {*} cvalue -- Cookie value
+     * @param {*} exdays -- Cokie expirations days
+     */
+    Set() {
+        let d = new Date();
+        d.setTime(d.getTime() + (exdays*24*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    },
+
+    /**
+     * @param {*} cname returns cookie with name @cname
+     */
+    Get() {
+        let name = cname + "=";
+        let decodedCookie = decodeURIComponent(document.cookie);
+        let ca = decodedCookie.split(';');
+        for(let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) == ' ') 
+                c = c.substring(1);
+            if (c.indexOf(name) == 0) 
+                return c.substring(name.length, c.length);
+        }
+        return "";
     }
-    return "";
-}
-
-/* lazyload.js (c) Lorenzo Giuliani
- * MIT License (http://www.opensource.org/licenses/mit-license.html)
- *
- * expects a list of:  
- * `<img src="blank.gif" data-src="my_image.png" width="600" height="400" class="lazy">`
- */
-
+};
