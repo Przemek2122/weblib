@@ -14,23 +14,81 @@ function OnSizeChanged() {
     });
 }
 
+
+/**
+ * //////////
+ * PROTOTYPES
+ * //////////
+ */
+
+
+/**
+ * Returns value between min and max.
+ * Bigger or equal min to smaller than max.
+ * @param {*} min 
+ * @param {*} max 
+ */
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+/**
+ * Returns value between min to max.
+ * Bigger or equal min to smaller or equal max. 
+ * @param {*} min 
+ * @param {*} max 
+ */
+function getRandomIntInc(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 /**
  * $(querySelector)
  * @param {*} querySelector 
  * eg: #id or .css-class
  * $('#someid')
  */
-function $(querySelector) { return document.querySelector(querySelector); }
-Object.prototype.$ = function() { return document.querySelector(querySelector);}
+function $(querySelector) { return document.querySelector(querySelector); }1
+Object.prototype.$ = function() { return this.querySelector(arguments[0]);}
 /**
  * @param {*} time in MS
  */
-Object.prototype.Show = function(time) { new ShownElement(this, time); }
+Object.prototype.Show = function() { new ShownElement(this, arguments[0]); }
 /**
  * @param {*} time in MS
  */
-Object.prototype.Hide = function(time) { new HidenElement(this, time); }
+Object.prototype.Hide = function() { new HidenElement(this, arguments[0]); }
 
+/**
+ * Iterate through letters in string
+ */
+String.prototype.for = function() {
+    for (var i = 0; i < this.length; i++) {
+        arguments[0](this.charAt(i));
+    }
+}
+/**
+ * Iterate through letters in string starting from rear
+ */
+String.prototype.forRev = function(elem) {
+    let i = this.length;
+    while (i--) {
+        arguments[0](this.charAt(i));
+    }
+}
+
+/**
+ * Check if array contains element
+ */
+Array.prototype.contains = function() { 
+    for (let i = 0; i < this.length; i++) {
+        if (arguments[0] == this[i])
+            return true;
+    }
+    return false;
+};
 /**
  * Example ussage
  * array.remove(someItem)
@@ -76,9 +134,156 @@ Map.prototype.forValues = function() {
     }
 };
 
-class Loading {
-    constructor(element = $("#loader")) {
+
+/**
+ * /////////
+ * FUNCTIONS
+ * /////////
+ */
+
+
+/**
+ * Remove css class from all element
+ * @param {*} cssClass - Class to remove
+ */
+function RemoveClassByClass(cssClass) {
+    let Selected = Array.from(document.getElementsByClassName(cssClass));
+
+    Selected.for(function(entry){
+        entry.classList.remove(cssClass);
+    });
+}
+
+/**
+ * Add css class to element
+ * @param {*} id - Element id
+ * @param {*} cssClass - Class to add
+ */
+function AddClassToID(id, cssClass) {
+    let Elem = document.getElementById(id);
+    if (Elem)
+        document.getElementById(id).classList += cssClass;
+    else
+        Log.l_Warn("AddClassToID(id, cssClass) ID: " + id + " not found.");
+        
+}
+
+/* Return position in array or false. */
+function IsBeingChanged(element) {
+    for (let i = 0; i < ChangingElements.length; i++)
+    {
+        if (ChangingElements[i] == element)
+            return i;
+    }
+    return false;
+}
+
+/* Use to check if scrolled below element with @id */
+function IsPassedID(id) {
+    let elementTarget = document.getElementById(id);
+
+    if (!elementTarget){
+        Log.l_Warn("ID: " + id + " not found!");
+        return "ID: " + id + " not found!";
+    }
+    else if (window.scrollY > (elementTarget.offsetTop + elementTarget.offsetHeight)) 
+        return true;
+       
+    return false;
+}
+
+/* Use to check if scroll is on element with @id */
+function IsOnID(id) {
+    let elementTarget = document.getElementById(id);
+
+    if (!elementTarget){
+        Log.l_Warn("ID: " + id + " not found!");
+        return;
+    }
+
+    if (window.scrollY + window.innerHeight > elementTarget.offsetTop) 
+        return true;
+       
+    return false;
+}
+
+/**
+ * Function use css opacity to show.
+ * 
+ * @param {*} element to show
+ * @param {*} time in MS
+ */
+function Show(element, time) {
+    if (element)
+        new ShownElement(element, time);    
+    else
+        Log.l_Warn("function Show() element is NULL.");
+}
+/**
+ * Function use css opacity to hide.
+ * 
+ * @param {*} element to hide
+ * @param {*} time in MS
+ */
+function Hide(element, time) {
+    if (element)
+        new HidenElement(element, time);
+    else
+        Log.l_Warn("function Hide() element is NULL.");
+}
+
+function PercentTimeDescending(startTime, time) {
+    return -(new Date().getTime() - startTime - time) / time;
+}
+function PercentTimeAscending(startTime, time) {
+    return (new Date().getTime() - startTime) / time;
+}
+
+
+/**
+ * ///////
+ * CLASSES
+ * ///////
+ */
+
+
+class BasicObject {
+    constructor(element = this.getDefaultElement()) {
         this.element = element;
+        this.deleted = false;
+        this.oncreated();
+    }
+
+    /**
+     * Call to "destroy" this class
+     */
+    destructor() { 
+        this.deleted = true; 
+        this.ondestroyed();
+    }
+
+    /**
+     * Default element if nothing passed in constructor.
+     */
+    getDefaultElement() {
+        Log.l_Error("getDefaultElement() is empty and element is not valid in constructor.");
+        return $("elem");
+    }
+
+    /**
+     * Called by constructor
+     */
+    oncreated() { }
+    
+    /**
+     * Called by destructor
+     */
+    ondestroyed() { }
+}
+
+class Loading extends BasicObject {
+    getDefaultElement() {
+        return $("#loader");
     }
 
     Start(time = 1000) {
@@ -98,12 +303,23 @@ class Loading {
     }
 }
 
+class StaticFooter extends BasicObject { 
+    getDefaultElement() {
+        return $("#footer");
+    }
+
+    oncreated() {
+
+    }
+}
+
 /**
  * Class for making clickable menu.
  * Sample ussage: 
  * Create like this: var Menu = new MenuClickable($("#menu"));
  * Destroy like this:  Menu.destructor();
  * To make sure it's garbage collected: Menu = null;
+ * (Destroy only if needed)
  * 
  * How should menu look like?
  * nav
@@ -115,27 +331,26 @@ class Loading {
  * Important
  * Menu MUST HAVE AN ID
  */
-class MenuClickable {
-    constructor(element) {
-        if (!element) {
-            Log.l_Warn("MenuClickable: element isn't valid."); return;
-        }
-
-        this.element = element;
-        this.elements = Array.from(element.parentElement.getElementsByTagName("a"));
-        this.displayMethod = element.style.display;
+class MenuClickable extends BasicObject {
+    getDefaultElement() {
+        return $("#menu");
+    }
+    
+    oncreated() {       
+        this.elements = Array.from(this.element.parentElement.getElementsByClassName("navbtn"));
+        this.displayMethod = this.element.style.display;
         this.element.addEventListener( "click", this.OnClickedMenu );
         this.isOpened = true;
         Menus.set(this.GetID(), this);
     }
-    destructor(){
+    
+    ondestroyed() {
         this.element.removeEventListener( "click", this.OnClickedMenu );
         Menus.delete(this.GetID());
     }
 
     /**
-     * Called by event click
-     * @param {e} event
+     * @param {e} event from click
      */
     OnClickedMenu(e) { GetMenu(e.target.id).SwitchMenu(e.target); }
 
@@ -176,78 +391,18 @@ class MenuClickable {
 
     GetID() { return this.element.id; }
 }
+/**
+ * Helper function for MenuClickable class
+ * @param {id} id 
+ */
 function GetMenu(id) { return Menus.get(id); }
-
-/* Use to check if scrolled below element with @id */
-function IsPassedID(id) {
-    let elementTarget = document.getElementById(id);
-
-    if (!elementTarget){
-        Log.l_Warn("ID: " + id + " not found!");
-        return "ID: " + id + " not found!";
-    }
-    else if (window.scrollY > (elementTarget.offsetTop + elementTarget.offsetHeight)) 
-        return true;
-       
-    return false;
-}
-
-/* Use to check if scroll is on element with @id */
-function IsOnID(id) {
-    let elementTarget = document.getElementById(id);
-
-    if (!elementTarget){
-        Log.l_Warn("ID: " + id + " not found!");
-        return;
-    }
-
-    if (window.scrollY + window.innerHeight > elementTarget.offsetTop) 
-        return true;
-       
-    return false;
-}
-
-/**
- * Remove css class from all element
- * @param {*} cssClass - Class to remove
- */
-function RemoveClassByClass(cssClass) {
-    let Selected = Array.from(document.getElementsByClassName(cssClass));
-
-    Selected.for(function(entry){
-        entry.classList.remove(cssClass);
-    });
-}
-
-/**
- * Add css class to element
- * @param {*} id - Element id
- * @param {*} cssClass - Class to add
- */
-function AddClassToID(id, cssClass) {
-    let Elem = document.getElementById(id);
-    if (Elem)
-        document.getElementById(id).classList += cssClass;
-    else
-        Log.l_Warn("AddClassToID(id, cssClass) ID: " + id + " not found.");
-        
-}
-
-/* Return position in array or false. */
-function IsBeingChanged(element) {
-    for (let i = 0; i < ChangingElements.length; i++)
-    {
-        if (ChangingElements[i] == element)
-            return i;
-    }
-    return false;
-}
 
 /**
  * 
  */
-class ChangingElement {
+class ChangingElement extends BasicObject {
     constructor(element) {
+        super(element);
         this.element = element;
         this.deleted = false;
 
@@ -264,7 +419,7 @@ class ChangingElement {
      * Remove itself from array and mark as deleted.
      */ 
     destructor() {
-        this.deleted = true;
+        super();
         ChangingElements.remove(this);
     }
 }
@@ -329,37 +484,13 @@ class HidenElement extends ChangingElement {
     }
 }
 
-/**
- * Function use css opacity to show.
- * 
- * @param {*} element to show
- * @param {*} time in MS
- */
-function Show(element, time) {
-    if (element)
-        new ShownElement(element, time);    
-    else
-        Log.l_Warn("function Show() element is NULL.");
-}
-/**
- * Function use css opacity to hide.
- * 
- * @param {*} element to hide
- * @param {*} time in MS
- */
-function Hide(element, time) {
-    if (element)
-        new HidenElement(element, time);
-    else
-        Log.l_Warn("function Hide() element is NULL.");
-}
 
-function PercentTimeDescending(startTime, time) {
-    return -(new Date().getTime() - startTime - time) / time;
-}
-function PercentTimeAscending(startTime, time) {
-    return (new Date().getTime() - startTime) / time;
-}
+/**
+ * //////////
+ * NAMESPACES
+ * //////////
+ */
+
 
 var Log = {
     l_Info(sth) { console.log("[lib.js]: " + sth); },
@@ -370,11 +501,11 @@ var Log = {
 var Cookie = {
     /**
      * Sets cookie with
-     * @param {*} cname  -- Cookie name
-     * @param {*} cvalue -- Cookie value
-     * @param {*} exdays -- Cokie expirations days
+     * @param {*} cname   Cookie name
+     * @param {*} cvalue  Cookie value
+     * @param {*} exdays  Cokie expirations days
      */
-    Set() {
+    Set(cname, cvalue, exdays) {
         let d = new Date();
         d.setTime(d.getTime() + (exdays*24*60*60*1000));
         let expires = "expires="+ d.toUTCString();
@@ -384,7 +515,7 @@ var Cookie = {
     /**
      * @param {*} cname returns cookie with name @cname
      */
-    Get() {
+    Get(cname) {
         let name = cname + "=";
         let decodedCookie = decodeURIComponent(document.cookie);
         let ca = decodedCookie.split(';');
