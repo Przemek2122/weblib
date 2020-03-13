@@ -53,6 +53,22 @@ function getRandomIntInc(min, max) {
 function $(querySelector) { return document.querySelector(querySelector); }1
 Object.prototype.$ = function() { return this.querySelector(arguments[0]);}
 /**
+ * @param {*} cssRule - Rule you want to get.
+ */
+Object.prototype.getStyle = function() {
+    var strValue = "";
+    if(document.defaultView && document.defaultView.getComputedStyle){
+        strValue = document.defaultView.getComputedStyle(this, "").getPropertyValue(arguments[0]);
+    }
+    else if(this.currentStyle){
+        arguments[0] = arguments[0].replace(/\-(\w)/g, function (strMatch, p1){
+            return p1.toUpperCase();
+        });
+        strValue = this.currentStyle[arguments[0]];
+    }
+    return strValue;
+}
+/**
  * @param {*} time in MS
  */
 Object.prototype.Show = function() { new ShownElement(this, arguments[0]); }
@@ -70,7 +86,7 @@ String.prototype.for = function() {
     }
 }
 /**
- * Iterate through letters in string starting from rear
+ * Iterate through letters (reversed). Starts from rear.
  */
 String.prototype.forRev = function(elem) {
     let i = this.length;
@@ -118,6 +134,15 @@ Array.prototype.for = function() {
 };
 
 /**
+ * Iterate map with key and value.
+ */
+Map.prototype.for = function() {
+    this.forEach( function(value, key, map) { 
+        arguments[0](value, key, map);
+    });
+};
+
+/**
  * Iterate by keys
  */
 Map.prototype.forKey = function() {
@@ -141,6 +166,48 @@ Map.prototype.forValues = function() {
  * /////////
  */
 
+
+/**
+ * Brings sleep to JS.
+ * Shouldn't be used on main thread.
+ * @param {*} milliseconds How long?
+ */
+function Sleep(milliseconds = 0) {
+    const date = Date.now();
+    let currentDate = null;
+    do {
+      currentDate = Date.now();
+    } while (currentDate - date < milliseconds);
+}
+
+/**
+ * Usage:
+ * Delay(2000).then(() => { console.log("World!"); });
+ * @param {*} ms How long to wait before executing?
+ */
+function Delay(ms = 0) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Calling again will reset timer.
+ * Usefull for blocking too much clicking (SPAM)
+ * Requires variable handle.
+ * @param {*} handle Variable used to retrigger
+ * @param {*} ms Timer like in normal delay
+ * @param {*} callback function() { console.log(); }
+ */
+function ReTriggerableDelay(handle, ms, callback) {
+    if (handle.isHandle != true) {
+        handle.isHandle = true;
+    } else {
+        clearTimeout(handle.timeout);
+    }
+
+    handle.timeout = setTimeout(function(){ 
+        ReTriggerableDelay(handle, ms, callback); 
+    }, ms);
+}
 
 /**
  * Remove css class from all element
@@ -207,6 +274,10 @@ function IsOnID(id) {
     return false;
 }
 
+function RemovePX(numWithPXs) {
+    return( parseInt( numWithPXs.replace('px',''), 10) ); 
+}
+
 /**
  * Function use css opacity to show.
  * 
@@ -230,6 +301,65 @@ function Hide(element, time) {
         new HidenElement(element, time);
     else
         Log.l_Warn("function Hide() element is NULL.");
+}
+
+function JsonToWordsMap(json_data) {
+    // What is json?
+    // {
+    //      "whatdata": "data",
+    //      "tag": "data"
+    // }
+
+    let map = new Map();
+    let isData = true;
+    let add = false;
+    let data = "";
+    let tag = "";
+
+    for(let i in json_data){
+        // Start
+        if (json_data[i] == '{')
+        { }
+        else if (json_data[i] == '}')
+        {
+            if (data != "" && tag != "")
+                map.set(tag, data);
+        }
+        // Word start
+        else if (json_data[i] == '"') // Word start or end
+        { 
+            add = !add;
+        }
+        // Now data ( "tag": "data" )
+        else if (json_data[i] == ':')
+        {
+            isData = false;
+        }
+        // End of line
+        else if (json_data[i] == ',')
+        {
+            if (data != "" && tag != "")
+                map.set(tag, data);
+                
+            isData = true;
+            add = false;
+            data = "";
+            tag = "";
+        }
+        // Normal data
+        else
+        {
+            if (!add)
+                continue;
+
+            if (isData)
+                tag += json_data[i];
+            else
+                data += json_data[i];
+        }
+    }
+
+    return map;
 }
 
 function PercentTimeDescending(startTime, time) {
@@ -281,35 +411,92 @@ class BasicObject {
     ondestroyed() { }
 }
 
-class Loading extends BasicObject {
-    getDefaultElement() {
-        return $("#loader");
+class Delegate {
+    constructor() {
+        this.functions = Array();
     }
 
-    Start(time = 1000) {
+    Add(func) {
+        this.functions.push(func);
+    }
+
+    Broadcast(params) {
+        this.functions.for( function(func) {
+            func(params);
+        });
+    }
+
+    Clear(func) {
+        this.functions = Array();
+    }
+}
+
+class Loading extends BasicObject {
+    getDefaultElement() { return $("#loader"); }
+
+    Show(time = 1000) {
         if (this.element)
         {
-            Show(document.getElementById('loader'), time);
+            Show(this.element, time);
             document.body.style.overflow = "hidden"; 
         }
     }
     
-    Stop(time = 1000) {
+    Hide(time = 1000) {
         if (this.element)
         {
-            Hide(document.getElementById('loader'), time);
+            Hide(this.element, time);
             document.body.style.overflow = "auto"; 
         } 
     }
 }
 
 class StaticFooter extends BasicObject { 
-    getDefaultElement() {
-        return $("#footer");
-    }
+    getDefaultElement() { return $("footer"); }
 
     oncreated() {
+        let tClass = this;
+        this.onChange(tClass);
 
+        window.onresize = function(event) {
+            tClass.onChange(tClass);
+        };
+    }
+
+    onChange(tClass) {
+        var bodyHeight = document.body.offsetHeight;
+        var vwptHeight = window.innerHeight;
+        var gap = vwptHeight - bodyHeight;
+
+        if (vwptHeight > bodyHeight)
+        {
+            tClass.lockBottom(tClass);
+            console.log("StaticFooter - Lock");
+        }
+        else
+        {
+            tClass.unlockBottom(tClass);
+            console.log("StaticFooter - Unlock");
+        }
+    }
+
+    lockBottom(tClass) {
+        tClass.position = tClass.element.style.position;
+        tClass.bottom = tClass.element.style.bottom;
+        tClass.width = tClass.element.style.width;
+        tClass.element.style.position = 'absolute';
+        tClass.element.style.bottom = '0';
+        tClass.element.style.width = "calc(100% - " + tClass.getOffset() + ")";
+    }
+
+    unlockBottom(tClass) {
+        tClass.element.style.position = tClass.position;
+        tClass.element.style.bottom = tClass.bottom;
+        tClass.element.style.width = tClass.width;
+    }
+
+    getOffset() {
+        return "8%";
     }
 }
 
@@ -332,9 +519,7 @@ class StaticFooter extends BasicObject {
  * Menu MUST HAVE AN ID
  */
 class MenuClickable extends BasicObject {
-    getDefaultElement() {
-        return $("#menu");
-    }
+    getDefaultElement() { return $("#menu"); }
     
     oncreated() {       
         this.elements = Array.from(this.element.parentElement.getElementsByClassName("navbtn"));
@@ -363,11 +548,11 @@ class MenuClickable extends BasicObject {
 
     SwitchMenu() {
         if (this.isOpened){
-            this.element.innerHTML = "[ ↑↑ ]";
+            this.element.innerHTML = "↓↓";
             this.CloseMenu();
             this.isOpened = false;
         } else {
-            this.element.innerHTML = "[ ↓↓ ]";
+            this.element.innerHTML = "↑↑";
             this.OpenMenu();
             this.isOpened = true;
         }
@@ -398,13 +583,12 @@ class MenuClickable extends BasicObject {
 function GetMenu(id) { return Menus.get(id); }
 
 /**
- * 
+ * Cookies info element
  */
-class ChangingElement extends BasicObject {
+class CookieInfoElement extends BasicObject {
+    getDefaultElement() { return $("#cookieinfo"); }
     constructor(element) {
         super(element);
-        this.element = element;
-        this.deleted = false;
 
         // Check if not exists already in array
         ChangingElements.for(function(elem){
@@ -419,7 +603,35 @@ class ChangingElement extends BasicObject {
      * Remove itself from array and mark as deleted.
      */ 
     destructor() {
-        super();
+        super.destructor();
+        ChangingElements.remove(this);
+    }
+}
+
+/**
+ * Base class for changing elements like
+ * ShownElement or HidenElement
+ * Delegate onFinish
+ */
+class ChangingElement extends BasicObject {
+    constructor(element) {
+        super(element);
+        this.onFinish = new Delegate();
+
+        // Check if not exists already in array
+        ChangingElements.for(function(elem){
+            if (elem.element == element)
+                elem.destructor();
+        });
+
+        // Than add
+        ChangingElements.push(this);
+    }
+    /**
+     * Remove itself from array and mark as deleted.
+     */ 
+    destructor() {
+        super.destructor();
         ChangingElements.remove(this);
     }
 }
@@ -437,19 +649,22 @@ class ShownElement extends ChangingElement {
         this.startTime = parseInt(new Date().getTime())
 
         // Make clickable
-        element.style.pointerEvents = "auto";
-    
+        try { element.style.pointerEvents = "auto"; } catch {}
+        
         this.Slowly(this);
     } 
 
     Slowly(inClass) {
         if (this.deleted) { return }
-        else if (new Date().getTime() < this.startTime + this.time ){
+        else if (new Date().getTime() < this.startTime + this.time ) {
+            // (loop - every frame ...)
             let opacity = PercentTimeAscending(this.startTime, this.time);
             this.element.style.opacity = opacity;
             setTimeout(function() { inClass.Slowly(inClass) }, 25); // 25 is 40 times per sec
         } else {
+            // Finish
             this.element.style.opacity = 1.0;
+            this.onFinish.Broadcast();
         }
     }
 }
@@ -457,7 +672,10 @@ class ShownElement extends ChangingElement {
 /**
  * Class used to show element 
  * @see Object.prototype.Hide(time) OR
- * @see function Hide(element, time)
+ * @see function Hide(element, time) 
+ * has event this.onFinish = new Event('finish');
+ * 
+ * NOTE: I know spelling is hard ...
  */
 class HidenElement extends ChangingElement {
     constructor(element, time){
@@ -467,19 +685,22 @@ class HidenElement extends ChangingElement {
         this.startTime = parseInt(new Date().getTime())
 
         // Make unclickable (click transparent)
-        element.style.pointerEvents = "none";
+        try { element.style.pointerEvents = "none"; } catch {}
     
         this.Slowly(this);
     }
     
     Slowly(inClass) {
         if (this.deleted) { return }
-        else if (new Date().getTime() < this.startTime + this.time ){
+        else if (new Date().getTime() < this.startTime + this.time ) {
+            // (loop - every frame ...)
             let opacity = PercentTimeDescending(this.startTime, this.time);
             this.element.style.opacity = opacity;
             setTimeout(function() { inClass.Slowly(inClass) }, 25); // 25 is 40 times per sec
         } else {
+            // Finish
             this.element.style.opacity = 0.0;
+            this.onFinish.Broadcast();
         }
     }
 }
@@ -501,15 +722,15 @@ var Log = {
 var Cookie = {
     /**
      * Sets cookie with
-     * @param {*} cname   Cookie name
-     * @param {*} cvalue  Cookie value
+     * @param {*} name   Cookie name
+     * @param {*} value  Cookie value
      * @param {*} exdays  Cokie expirations days
      */
-    Set(cname, cvalue, exdays) {
+    Set(name, value, exdays) {
         let d = new Date();
         d.setTime(d.getTime() + (exdays*24*60*60*1000));
         let expires = "expires="+ d.toUTCString();
-        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+        document.cookie = name + "=" + value + ";" + expires + ";path=/";
     },
 
     /**
