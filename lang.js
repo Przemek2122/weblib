@@ -12,7 +12,7 @@ var DefaultSite = "index.php"; // "index.html" or "index.php" ...
 var UseCookies = true; // Should this script be allowed to use cookies?
 var CustomPageSet = false; // Is custom page? use when script doesn't know what page is this.
 var CustomPage = "index.php"; // Custom page path
-var CustomPages = []; // What should be always loaded, like navbar, footer, etc.. Use just name eg '/lang/en/navbar.json' will be 'navbar'
+var CustomPages = ['navbar']; // What should be always loaded, like navbar, footer, etc.. Use just name eg '/lang/en/navbar.json' will be 'navbar'
 
 //
 //  INFO
@@ -33,8 +33,6 @@ class RequestLangData extends BasicObject {
         this.Http.open("GET", url);
         this.Http.send();
         this.onFinished = new Delegate();
-
-        console.log(url);
 
         this.Http.onreadystatechange = (e) => {
             if (this.Http.status != 200 && this.Http.status != 0) {
@@ -184,7 +182,7 @@ function ChangeLanguage(lang){
     } else {
         console.log('[Lang]: Download language request.');
         CurrentLanguage = lang;
-        Loader.Show(200);
+        Loader.Show(0);
         Request();
     }
 }

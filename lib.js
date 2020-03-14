@@ -6,6 +6,9 @@
 var ChangingElements = Array();
 /* Menus */
 var Menus = new Map();
+/* Draggable elements */
+/* Draggable elementsd */
+var Draggables = new Map();
 
 window.onresize = OnSizeChanged;
 function OnSizeChanged() {
@@ -114,14 +117,19 @@ Array.prototype.remove = function() {
 };
 /**
  * Example ussage
- * array.removeIf(function(elem) { return true; })
+ * array.removeIf( function(elem) { return true; } )
+ * array.removeIf( / function returning condition / } )
+ * returns how many elements have been removed, 0 otherwise
  */
 Array.prototype.removeIf = function() {
-    for (let i = 0; i < this.length; i++) {
-        if (arguments[0]) {
-            this.remove(this[i]);
-        }
+    let remElems = 0;
+
+    for( let i = 0; i < this.length; i++) { 
+        if ( arguments[0](this[i]) ) 
+        { this.splice(i, 1); i--; remElems++; }
     }
+
+    return remElems;
 };
 /**
  * array.for(function(elem) { console.log(elem); })
@@ -207,6 +215,20 @@ function ReTriggerableDelay(handle, ms, callback) {
     handle.timeout = setTimeout(function(){ 
         ReTriggerableDelay(handle, ms, callback); 
     }, ms);
+}
+
+/**
+ * @param {*} perc range 0 - 1 where 0 means 0% and 1 means 100%
+ */
+function GetPercentWidthPX(perc) {
+    return window.width * perc;
+}
+
+/**
+ * @param {*} perc range 0 - 1 where 0 means 0% and 1 means 100%
+ */
+function GetPercentHeightPX(perc) {
+    return window.height * perc;
 }
 
 /**
@@ -381,7 +403,6 @@ class BasicObject {
     constructor(element = this.getDefaultElement()) {
         this.element = element;
         this.deleted = false;
-        this.oncreated();
     }
 
     /**
@@ -389,7 +410,6 @@ class BasicObject {
      */
     destructor() { 
         this.deleted = true; 
-        this.ondestroyed();
     }
 
     /**
@@ -399,16 +419,6 @@ class BasicObject {
         Log.l_Error("getDefaultElement() is empty and element is not valid in constructor.");
         return $("elem");
     }
-
-    /**
-     * Called by constructor
-     */
-    oncreated() { }
-    
-    /**
-     * Called by destructor
-     */
-    ondestroyed() { }
 }
 
 class Delegate {
@@ -416,17 +426,30 @@ class Delegate {
         this.functions = Array();
     }
 
+    /**
+     * Add new function to delegate
+     * @param {*} func function
+     * this function can have single parameter
+     */
     Add(func) {
         this.functions.push(func);
     }
 
+    /**
+     * Execute all function in delegate with possibe
+     * @param {*} params parameters
+     */
     Broadcast(params) {
         this.functions.for( function(func) {
             func(params);
         });
     }
 
-    Clear(func) {
+    /**
+     * Clear deletgate.
+     * Remove all functions.
+     */
+    Clear() {
         this.functions = Array();
     }
 }
@@ -451,10 +474,113 @@ class Loading extends BasicObject {
     }
 }
 
+/**
+ * 
+ * @param {*} element 
+ * @param {*} isVisible Is visible by default?
+ */
+class DraggableObject extends BasicObject { 
+    getDefaultElement() { return null; }
+    constructor(element, isVisible = true) {
+        super(element);
+        if (this.element)
+        {
+            // Bind
+            Draggables.set(this.element.id, this);
+            this.isVisible = isVisible;
+            (isVisible) ? element.style.display = 'block' : element.style.display = 'none';
+            this.element.onmousedown = this.dragMouseDown;
+            this.pos1 = 0, this.pos2 = 0, this.pos3 = 0, this.pos4 = 0;
+        }
+        else
+        {
+            Log.l_Warn("DraggableObject not found. Element is empty.");
+        }
+    }
+
+    destructor() {
+        super.destructor();
+        Draggables.delete(this.element.id);
+    }
+    
+    dragMouseDown(e) {
+        let tClass = GetDraggable(this.id);
+
+        e = e || window.event;
+        e.preventDefault();
+        // get the mouse cursor position at startup:
+        tClass.pos3 = e.clientX;
+        tClass.pos4 = e.clientY;
+        document.onmouseup = tClass.closeDragElement;
+        // call a function whenever the cursor moves:
+        document.onmousemove = tClass.elementDrag;
+    }
+
+    elementDrag(e) {
+        let tClass = GetDraggable(e.srcElement.id);
+        if (!tClass)
+            tClass = GetDraggable(e.srcElement.parentNode.id);
+
+        if (!tClass) { return; }
+
+        e = e || window.event;
+        e.preventDefault();
+
+        // Calculate the new cursor position:
+        tClass.pos1 = tClass.pos3 - e.clientX;
+        tClass.pos2 = tClass.pos4 - e.clientY;
+        tClass.pos3 = e.clientX;
+        tClass.pos4 = e.clientY;
+
+        // Set the element's new position:
+        tClass.element.style.top = (tClass.element.offsetTop - tClass.pos2) + "px";
+        tClass.element.style.left = (tClass.element.offsetLeft - tClass.pos1) + "px";
+    }
+    
+    closeDragElement() {
+        // Stop moving when mouse button is released:
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+
+    //getDefaultOffset() { return 50, 50; } // Perc 50 -> 50%
+    
+    toggle() {
+        if (this.isVisible)
+            this.hide();
+        else
+            this.show();
+    }
+
+    show() {
+        if (this.isVisible) return;
+        else this.isVisible = !this.isVisible;
+
+        let showElem = new ShownElement(this.element, 800);
+
+        this.element.style.display = 'block';
+    }
+
+    hide() {
+        if (!this.isVisible) return;
+        else this.isVisible = !this.isVisible;
+
+        let hidingElem = new HidenElement(this.element, 800);
+
+        let tClass = this;
+
+        hidingElem.onFinish.Add(function () { 
+            tClass.element.style.display = 'none';
+        }, false);
+    }
+}
+function GetDraggable(id) { return Draggables.get(id); }
+
 class StaticFooter extends BasicObject { 
     getDefaultElement() { return $("footer"); }
 
-    oncreated() {
+    constructor(element) {
+        super(element);
         let tClass = this;
         this.onChange(tClass);
 
@@ -466,17 +592,16 @@ class StaticFooter extends BasicObject {
     onChange(tClass) {
         var bodyHeight = document.body.offsetHeight;
         var vwptHeight = window.innerHeight;
-        var gap = vwptHeight - bodyHeight;
 
         if (vwptHeight > bodyHeight)
         {
             tClass.lockBottom(tClass);
-            console.log("StaticFooter - Lock");
+            Log.l_Info("StaticFooter - Lock");
         }
         else
         {
             tClass.unlockBottom(tClass);
-            console.log("StaticFooter - Unlock");
+            Log.l_Info("StaticFooter - Unlock");
         }
     }
 
@@ -521,7 +646,8 @@ class StaticFooter extends BasicObject {
 class MenuClickable extends BasicObject {
     getDefaultElement() { return $("#menu"); }
     
-    oncreated() {       
+    constructor(element) {
+        super(element);       
         this.elements = Array.from(this.element.parentElement.getElementsByClassName("navbtn"));
         this.displayMethod = this.element.style.display;
         this.element.addEventListener( "click", this.OnClickedMenu );
@@ -583,32 +709,6 @@ class MenuClickable extends BasicObject {
 function GetMenu(id) { return Menus.get(id); }
 
 /**
- * Cookies info element
- */
-class CookieInfoElement extends BasicObject {
-    getDefaultElement() { return $("#cookieinfo"); }
-    constructor(element) {
-        super(element);
-
-        // Check if not exists already in array
-        ChangingElements.for(function(elem){
-            if (elem.element == element)
-                elem.destructor();
-        });
-
-        // Than add
-        ChangingElements.push(this);
-    }
-    /**
-     * Remove itself from array and mark as deleted.
-     */ 
-    destructor() {
-        super.destructor();
-        ChangingElements.remove(this);
-    }
-}
-
-/**
  * Base class for changing elements like
  * ShownElement or HidenElement
  * Delegate onFinish
@@ -632,7 +732,9 @@ class ChangingElement extends BasicObject {
      */ 
     destructor() {
         super.destructor();
-        ChangingElements.remove(this);
+        let tElem = this.element;
+        if ( !ChangingElements.removeIf( function(elem) { return elem.element == tElem; } ) ) 
+            Log.l_Warn("ChangingElement: Unable to remove itself from ChangingElements.");
     }
 }
 
@@ -704,6 +806,23 @@ class HidenElement extends ChangingElement {
         }
     }
 }
+
+/**
+ * Cookies info element
+ */
+class CookieInfoElement extends ChangingElement {
+    getDefaultElement() { return $("#cookieinfo"); }
+    constructor(element) {
+        super(element);
+    }
+    /**
+     * Remove itself from array and mark as deleted.
+     */ 
+    destructor() {
+        super.destructor();
+    }
+}
+
 
 
 /**
