@@ -59,7 +59,7 @@ Object.prototype.$ = function() { return this.querySelector(arguments[0]);}
  * @param {*} cssRule - Rule you want to get.
  */
 Object.prototype.getStyle = function() {
-    var strValue = "";
+    let strValue = "";
     if(document.defaultView && document.defaultView.getComputedStyle){
         strValue = document.defaultView.getComputedStyle(this, "").getPropertyValue(arguments[0]);
     }
@@ -84,7 +84,7 @@ Object.prototype.Hide = function() { new HidenElement(this, arguments[0]); }
  * Iterate through letters in string
  */
 String.prototype.for = function() {
-    for (var i = 0; i < this.length; i++) {
+    for (let i = 0; i < this.length; i++) {
         arguments[0](this.charAt(i));
     }
 }
@@ -218,6 +218,22 @@ function ReTriggerableDelay(handle, ms, callback) {
 }
 
 /**
+ * Coppies str to user clipboard
+ * @param {*} str string to coppy
+ */
+function CopyToClipboard(str) {
+    const el = document.createElement('textarea');
+    el.value = str;
+    el.setAttribute('readonly', '');
+    el.style.position = 'absolute';
+    el.style.left = '-9999px';
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+};
+
+/**
  * @param {*} perc range 0 - 1 where 0 means 0% and 1 means 100%
  */
 function GetPercentWidthPX(perc) {
@@ -334,7 +350,7 @@ function JsonToWordsMap(json_data) {
 
     let map = new Map();
     let isData = true;
-    let add = false;
+    let isInWord = false;
     let data = "";
     let tag = "";
 
@@ -350,7 +366,7 @@ function JsonToWordsMap(json_data) {
         // Word start
         else if (json_data[i] == '"') // Word start or end
         { 
-            add = !add;
+            isInWord = !isInWord;
         }
         // Now data ( "tag": "data" )
         else if (json_data[i] == ':')
@@ -358,20 +374,20 @@ function JsonToWordsMap(json_data) {
             isData = false;
         }
         // End of line
-        else if (json_data[i] == ',')
+        else if (json_data[i] == ',' && !isInWord)
         {
             if (data != "" && tag != "")
                 map.set(tag, data);
                 
             isData = true;
-            add = false;
+            isInWord = false;
             data = "";
             tag = "";
         }
         // Normal data
         else
         {
-            if (!add)
+            if (!isInWord)
                 continue;
 
             if (isData)
@@ -454,6 +470,39 @@ class Delegate {
     }
 }
 
+/**
+ * JS Request
+ */
+class RequestData extends BasicObject {
+    constructor(url, type = "GET") {
+        super();
+        this.Http = new XMLHttpRequest();
+        this.Http.open(type, url);
+        this.Http.send();
+        this.onFinished = new Delegate();
+
+        this.Http.onreadystatechange = (e) => {
+            if (this.Http.status != 200 && this.Http.status != 0) {
+                Log.l_Error("File: " + url + " Not found. Http.status: " + this.Http.status);
+                this.destructor();
+            }
+            else if (this.Http.responseText)
+            {
+                this.onFinished.Broadcast(this.Http.responseText);
+                this.destructor();
+            }
+        }
+    }
+
+    destructor() {
+        super.destructor();
+        this.Http.abort(); // Close request
+        this.Http = null;
+    }
+
+    getDefaultElement() { return null; }
+}
+
 class Loading extends BasicObject {
     getDefaultElement() { return $("#loader"); }
 
@@ -475,7 +524,6 @@ class Loading extends BasicObject {
 }
 
 /**
- * 
  * @param {*} element 
  * @param {*} isVisible Is visible by default?
  */
@@ -585,39 +633,36 @@ class StaticFooter extends BasicObject {
         this.onChange(tClass);
 
         window.onresize = function(event) {
-            tClass.onChange(tClass);
+            tClass.onChange();
         };
     }
 
-    onChange(tClass) {
-        var bodyHeight = document.body.offsetHeight;
-        var vwptHeight = window.innerHeight;
-
-        if (vwptHeight > bodyHeight)
+    onChange() {
+        if (document.body.offsetHeight < window.innerHeight)
         {
-            tClass.lockBottom(tClass);
+            this.lockBottom();
             Log.l_Info("StaticFooter - Lock");
         }
         else
         {
-            tClass.unlockBottom(tClass);
+            this.unlockBottom();
             Log.l_Info("StaticFooter - Unlock");
         }
     }
 
-    lockBottom(tClass) {
-        tClass.position = tClass.element.style.position;
-        tClass.bottom = tClass.element.style.bottom;
-        tClass.width = tClass.element.style.width;
-        tClass.element.style.position = 'absolute';
-        tClass.element.style.bottom = '0';
-        tClass.element.style.width = "calc(100% - " + tClass.getOffset() + ")";
+    lockBottom() {
+        this.position = this.element.style.position;
+        this.bottom = this.element.style.bottom;
+        this.width = this.element.style.width;
+        this.element.style.position = 'absolute';
+        this.element.style.bottom = '0';
+        this.element.style.width = "calc(100% - " + this.getOffset() + ")";
     }
 
-    unlockBottom(tClass) {
-        tClass.element.style.position = tClass.position;
-        tClass.element.style.bottom = tClass.bottom;
-        tClass.element.style.width = tClass.width;
+    unlockBottom() {
+        this.element.style.position = this.position;
+        this.element.style.bottom = this.bottom;
+        this.element.style.width = this.width;
     }
 
     getOffset() {
@@ -650,7 +695,8 @@ class MenuClickable extends BasicObject {
         super(element);       
         this.elements = Array.from(this.element.parentElement.getElementsByClassName("navbtn"));
         this.displayMethod = this.element.style.display;
-        this.element.addEventListener( "click", this.OnClickedMenu );
+        let tClass = this;
+        this.element.addEventListener( "click", function() { tClass.OnClickedMenu(tClass); } );
         this.isOpened = true;
         Menus.set(this.GetID(), this);
     }
@@ -663,7 +709,7 @@ class MenuClickable extends BasicObject {
     /**
      * @param {e} event from click
      */
-    OnClickedMenu(e) { GetMenu(e.target.id).SwitchMenu(e.target); }
+    OnClickedMenu(tClass) { tClass.SwitchMenu(); }
 
     OnWindowChanged() {
         if (window.innerWidth > 800) {
@@ -702,11 +748,6 @@ class MenuClickable extends BasicObject {
 
     GetID() { return this.element.id; }
 }
-/**
- * Helper function for MenuClickable class
- * @param {id} id 
- */
-function GetMenu(id) { return Menus.get(id); }
 
 /**
  * Base class for changing elements like
@@ -746,7 +787,6 @@ class ChangingElement extends BasicObject {
 class ShownElement extends ChangingElement {
     constructor(element, time){
         super(element);
-        this.element,
         this.time = time;
         this.startTime = parseInt(new Date().getTime())
 
@@ -782,7 +822,6 @@ class ShownElement extends ChangingElement {
 class HidenElement extends ChangingElement {
     constructor(element, time){
         super(element);
-        this.element,
         this.time = time;
         this.startTime = parseInt(new Date().getTime())
 
@@ -808,18 +847,48 @@ class HidenElement extends ChangingElement {
 }
 
 /**
- * Cookies info element
+ * Cookies info element.
+ * Suggested HTML:
+ * <cookieinfo>
+ *     <p>Some cookies notice</p>
+ *     <cookiex>Close</cookiex>
+ * </cookieinfo>
  */
-class CookieInfoElement extends ChangingElement {
-    getDefaultElement() { return $("#cookieinfo"); }
+class CookieInfoElement extends BasicObject {
+    getDefaultElement() { return $("cookieinfo"); }
+    getDefaultClose() { return $("#cookieinfo"); }
     constructor(element) {
         super(element);
+
+        // Called every time, doesn't matter if cookie closed already
+        this.onCookieInfoClosed = new Delegate();
+
+        if(Cookie.Get("cookieinfo") === "1")
+        {
+            this.element.style.display = "none";
+            this.onCookieInfoClosed.Broadcast();
+            this.destructor();
+            return;
+        }
+
+        let tClass = this;
+        this.closeElem = this.element.$("cookiex").onclick = function () {
+            tClass.OnClicked();
+        };
+        console.log(this.element);
     }
     /**
      * Remove itself from array and mark as deleted.
      */ 
     destructor() {
         super.destructor();
+    }
+
+    OnClicked() {
+        this.onCookieInfoClosed.Broadcast();
+        new HidenElement(this.element, 1000);
+        Cookie.Set("cookieinfo", "1", 360);
+        this.destructor();
     }
 }
 

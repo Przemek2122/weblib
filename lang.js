@@ -12,7 +12,8 @@ var DefaultSite = "index.php"; // "index.html" or "index.php" ...
 var UseCookies = true; // Should this script be allowed to use cookies?
 var CustomPageSet = false; // Is custom page? use when script doesn't know what page is this.
 var CustomPage = "index.php"; // Custom page path
-var CustomPages = ['navbar']; // What should be always loaded, like navbar, footer, etc.. Use just name eg '/lang/en/navbar.json' will be 'navbar'
+var CustomPages = ['all']; // What should be always loaded, like navbar, footer, etc.. Use just name eg '/lang/en/navbar.json' will be 'navbar'
+var OnLanguageChanged = new Delegate();
 
 //
 //  INFO
@@ -24,50 +25,17 @@ var CustomPages = ['navbar']; // What should be always loaded, like navbar, foot
 var Loader = new Loading($("#loader"));
 
 /**
- * Download language
- */
-class RequestLangData extends BasicObject {
-    constructor(url) {
-        super();
-        this.Http = new XMLHttpRequest();
-        this.Http.open("GET", url);
-        this.Http.send();
-        this.onFinished = new Delegate();
-
-        this.Http.onreadystatechange = (e) => {
-            if (this.Http.status != 200 && this.Http.status != 0) {
-                Log.l_Error("[Lang]: File: " + url + " Not found. Http.status: " + this.Http.status);
-                this.destructor();
-            }
-            else if (this.Http.responseText)
-            {
-                this.onFinished.Broadcast(this.Http.responseText);
-                this.destructor();
-            }
-        }
-    }
-
-    getDefaultElement() { return null; }
-
-    destructor() {
-        super.destructor();
-        this.Http.abort(); // Close request
-        this.Http = null;
-    }
-}
-
-/**
  * Download missing language
  */
 function Request() {
     let RequestNum = 1;
-    let PageLang = new RequestLangData(GetLangURL());
+    let PageLang = new RequestData(GetLangURL());
     PageLang.onFinished.Add(function (json_data) {
         DownloadedLanguages.set(CurrentLanguage, new Map([...DownloadedLanguages.get(CurrentLanguage), ...JsonToWordsMap(json_data)]));
         Check();
     });
     for (let i = 0; i < CustomPages.length; i++) {
-        let CurrPage = new RequestLangData(LangDir + CurrentLanguage + "/" + CustomPages + ".json");
+        let CurrPage = new RequestData(LangDir + CurrentLanguage + "/" + CustomPages + ".json");
         RequestNum++;
         CurrPage.onFinished.Add(function (json_data) {
             DownloadedLanguages.set(CurrentLanguage, new Map([...DownloadedLanguages.get(CurrentLanguage), ...JsonToWordsMap(json_data)]));
@@ -203,6 +171,7 @@ function ApplyLang() {
     if (UseCookies)
         Cookie.Set("lang", CurrentLanguage, 360);
 
+    OnLanguageChanged.Broadcast();
     Loader.Hide(1000);
 }
 
